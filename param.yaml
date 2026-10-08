@@ -1,0 +1,56 @@
+# Local run config (make run). Verified against the parnaiguacu EarthRanger
+# account: Caça (caceria) events for May–June 2026 — the same period as
+# ICMBio's hand-made Anexo Fotográfico SMART, which this workflow reproduces.
+
+workflow_details:
+  name: Anexo – Registro Fotográfico
+  description: "Caça — maio e junho de 2026"
+
+er_client:
+  data_source:
+    name: parnaiguacu
+
+time_range:
+  since: "2026-05-01T03:00:00.000Z"
+  until: "2026-07-01T03:00:00.000Z"
+  timezone:
+    label: "UTC-03:00"
+    tzCode: America/Sao_Paulo
+    name: America/Sao_Paulo
+    utc: "-03:00"
+
+report_language:
+  var: pt
+
+report_title:
+  var: ""
+
+organization:
+  var: Parque Nacional do Iguaçu – ICMBio
+
+report_subtitle:
+  var: ""
+
+intro_text:
+  var: ""
+
+logo_path:
+  var: ""
+
+oldest_first:
+  var: false
+
+include_details:
+  var: true
+
+photo_records_report:
+  filename: anexo_registro_fotografico
+  template_path: "file:///Users/zak/Documents/w-dynamics/download-attachments/resources/templates/photo_records_annex_template.docx"
+
+events:
+  event_types:
+    - caceria
+  event_states: []
+
+download_photos:
+  photo_size: xlarge

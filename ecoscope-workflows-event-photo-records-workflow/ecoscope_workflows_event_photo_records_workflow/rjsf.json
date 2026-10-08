@@ -1,0 +1,443 @@
+{
+  "properties": {
+    "workflow_details": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Workflow Name",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Workflow Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object",
+      "description": "Add information that will help to differentiate this workflow from another.",
+      "title": "Workflow Details"
+    },
+    "er_client": {
+      "additionalProperties": false,
+      "properties": {
+        "data_source": {
+          "$ref": "#/$defs/EarthRangerConnection",
+          "title": "",
+          "description": "Select one of your configured data sources."
+        }
+      },
+      "required": [
+        "data_source"
+      ],
+      "type": "object",
+      "title": "Data Source"
+    },
+    "time_range": {
+      "additionalProperties": false,
+      "properties": {
+        "since": {
+          "format": "date-time",
+          "title": "Since",
+          "type": "string",
+          "description": "The start time"
+        },
+        "until": {
+          "format": "date-time",
+          "title": "Until",
+          "type": "string",
+          "description": "The end time"
+        },
+        "timezone": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/TimezoneInfo"
+            }
+          ],
+          "default": null,
+          "title": "Timezone"
+        }
+      },
+      "required": [
+        "since",
+        "until"
+      ],
+      "type": "object",
+      "description": "Choose the period of time to analyze.",
+      "title": "Time Range"
+    },
+    "Event Selection": {
+      "type": "object",
+      "description": "Choose which events to include. Event types and states are optional filters.",
+      "ecoscope:task_group": true,
+      "properties": {
+        "events": {
+          "additionalProperties": false,
+          "properties": {
+            "event_types": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Event Types",
+              "type": "array",
+              "description": "Select the event types to include. Leave empty for all."
+            },
+            "event_states": {
+              "default": null,
+              "items": {
+                "type": "string",
+                "oneOf": [
+                  {
+                    "const": "new",
+                    "title": "New"
+                  },
+                  {
+                    "const": "active",
+                    "title": "Active"
+                  },
+                  {
+                    "const": "resolved",
+                    "title": "Resolved"
+                  },
+                  {
+                    "const": "review",
+                    "title": "Review"
+                  }
+                ]
+              },
+              "title": "Event State",
+              "type": "array",
+              "description": "Select the event states to include. Leave empty for all.",
+              "uniqueItems": true,
+              "ecoscope:advanced": true
+            }
+          },
+          "required": [
+            "event_types"
+          ],
+          "type": "object",
+          "title": ""
+        }
+      }
+    },
+    "Photos": {
+      "type": "object",
+      "description": "Download the photos attached to the selected events.",
+      "ecoscope:task_group": true,
+      "properties": {
+        "download_photos": {
+          "additionalProperties": false,
+          "properties": {
+            "photo_size": {
+              "default": "xlarge",
+              "title": "Photo Size",
+              "type": "string",
+              "description": "Select the size of the photos downloaded from EarthRanger.",
+              "oneOf": [
+                {
+                  "const": "original",
+                  "title": "Original"
+                },
+                {
+                  "const": "xlarge",
+                  "title": "Extra large (1920px)"
+                },
+                {
+                  "const": "large",
+                  "title": "Large (800px)"
+                }
+              ]
+            },
+            "max_workers": {
+              "default": 8,
+              "maximum": 16,
+              "minimum": 1,
+              "title": "Parallel Downloads",
+              "type": "integer",
+              "description": "Set how many photos are downloaded at the same time.",
+              "ecoscope:advanced": true
+            }
+          },
+          "required": [],
+          "type": "object",
+          "title": ""
+        }
+      }
+    },
+    "Report Settings": {
+      "type": "object",
+      "description": "Language, branding and layout of the report.",
+      "ecoscope:task_group": true,
+      "properties": {
+        "report_language": {
+          "additionalProperties": false,
+          "properties": {
+            "var": {
+              "title": "Language",
+              "type": "string",
+              "description": "Select the language for the report and table labels.",
+              "default": "en",
+              "oneOf": [
+                {
+                  "const": "en",
+                  "title": "English"
+                },
+                {
+                  "const": "pt",
+                  "title": "Portugu\u00eas"
+                },
+                {
+                  "const": "es",
+                  "title": "Espa\u00f1ol"
+                }
+              ]
+            }
+          },
+          "required": [
+            "var"
+          ],
+          "type": "object",
+          "title": ""
+        },
+        "report_title": {
+          "additionalProperties": false,
+          "properties": {
+            "var": {
+              "default": "Photographic Records Annex",
+              "title": "Report Title",
+              "type": "string",
+              "description": "Enter the title shown on the cover page."
+            }
+          },
+          "type": "object",
+          "required": [],
+          "title": ""
+        },
+        "organization": {
+          "additionalProperties": false,
+          "properties": {
+            "var": {
+              "default": "",
+              "title": "Organization",
+              "type": "string",
+              "description": "Enter the organization name shown on the cover page and page header."
+            }
+          },
+          "type": "object",
+          "required": [],
+          "title": ""
+        },
+        "report_subtitle": {
+          "additionalProperties": false,
+          "properties": {
+            "var": {
+              "default": "",
+              "title": "Subtitle",
+              "type": "string",
+              "description": "Enter the subtitle shown on the cover page. Leave empty to show the reporting period."
+            }
+          },
+          "type": "object",
+          "required": [],
+          "title": ""
+        },
+        "intro_text": {
+          "additionalProperties": false,
+          "properties": {
+            "var": {
+              "default": "This annex compiles the photographs attached to EarthRanger events recorded during the reference period. Each record lists the event's identifier, date and time, classification and geographic coordinates, followed by its photographs.",
+              "title": "Introduction",
+              "type": "string",
+              "description": "Enter the introduction shown on the cover page."
+            }
+          },
+          "type": "object",
+          "required": [],
+          "title": ""
+        },
+        "logo_path": {
+          "additionalProperties": false,
+          "properties": {
+            "var": {
+              "default": "",
+              "title": "Logo",
+              "type": "string",
+              "description": "Enter the path or URL of the logo shown on the cover page."
+            }
+          },
+          "type": "object",
+          "required": [],
+          "title": ""
+        },
+        "oldest_first": {
+          "additionalProperties": false,
+          "properties": {
+            "var": {
+              "title": "Oldest First",
+              "type": "boolean",
+              "description": "Sort records from oldest to newest.",
+              "default": true
+            }
+          },
+          "required": [
+            "var"
+          ],
+          "type": "object",
+          "title": ""
+        },
+        "include_details": {
+          "additionalProperties": false,
+          "properties": {
+            "var": {
+              "title": "Include Event Details",
+              "type": "boolean",
+              "description": "Include each event's details in its record.",
+              "default": true
+            }
+          },
+          "required": [
+            "var"
+          ],
+          "type": "object",
+          "title": ""
+        },
+        "photo_records_report": {
+          "additionalProperties": false,
+          "properties": {
+            "template_path": {
+              "title": "Template",
+              "type": "string",
+              "description": "Enter the path or URL of the .docx template used for the report.",
+              "default": "https://raw.githubusercontent.com/wildlife-dynamics/download-attachments/main/resources/templates/photo_records_annex_template.docx",
+              "ecoscope:advanced": true
+            },
+            "filename": {
+              "default": "photo_records_annex",
+              "title": "File Name",
+              "type": "string",
+              "description": "Enter the name of the report file, without extension.",
+              "ecoscope:advanced": true
+            }
+          },
+          "required": [
+            "template_path"
+          ],
+          "type": "object",
+          "title": ""
+        }
+      }
+    }
+  },
+  "$defs": {
+    "EarthRangerConnection": {
+      "properties": {
+        "name": {
+          "title": "Data Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "EarthRangerConnection",
+      "type": "object"
+    },
+    "TimezoneInfo": {
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "tzCode": {
+          "title": "Tzcode",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "utc": {
+          "title": "Utc",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "tzCode",
+        "name",
+        "utc"
+      ],
+      "title": "TimezoneInfo",
+      "type": "object"
+    }
+  },
+  "uiSchema": {
+    "workflow_details": {
+      "ui:order": [
+        "name",
+        "description"
+      ]
+    },
+    "time_range": {
+      "ui:order": [
+        "since",
+        "until",
+        "timezone"
+      ]
+    },
+    "Event Selection": {
+      "events": {
+        "ui:order": [
+          "event_types",
+          "event_states"
+        ]
+      }
+    },
+    "Photos": {
+      "download_photos": {
+        "ui:order": [
+          "photo_size",
+          "max_workers"
+        ]
+      }
+    },
+    "Report Settings": {
+      "ui:order": [
+        "report_language",
+        "report_title",
+        "organization",
+        "report_subtitle",
+        "intro_text",
+        "logo_path",
+        "oldest_first",
+        "include_details",
+        "photo_records_report"
+      ],
+      "photo_records_report": {
+        "ui:order": [
+          "filename",
+          "template_path"
+        ]
+      },
+      "intro_text": {
+        "var": {
+          "ui:widget": "textarea",
+          "ui:options": {
+            "rows": 4
+          }
+        }
+      }
+    },
+    "ui:order": [
+      "workflow_details",
+      "er_client",
+      "time_range",
+      "Event Selection",
+      "Photos",
+      "Report Settings"
+    ]
+  },
+  "additionalProperties": false
+}

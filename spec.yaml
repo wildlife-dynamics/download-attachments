@@ -1,0 +1,361 @@
+id: event_photo_records
+
+requirements:
+  - name: ecoscope-platform
+    version: ">=2.17.0,<3.0.0"
+    channel: https://repo.prefix.dev/ecoscope-workflows/
+
+  - name: ecoscope-workflows-ext-custom
+    version: "0.1.2"
+    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+
+  # ext-custom requires pydeck==0.9.2, which is only on conda-forge — pinned
+  # explicitly so strict channel priority can resolve it.
+  - name: pydeck
+    version: 0.9.2
+    channel: conda-forge
+
+  # Dev: built locally from ../wd-partner-tasks (`make build`). Switch to the
+  # published channel (https://repo.prefix.dev/ecoscope-workflows-custom/)
+  # and the released version once wd-v* is tagged and pushed.
+  - name: ecoscope-workflows-ext-wd
+    version: "0.0.4"
+    channel: file:///tmp/ecoscope-workflows-custom/release/artifacts/
+
+rjsf-overrides:
+  properties:
+    Event Selection.properties.events.properties.event_types.description: Select the event types to include. Leave empty for all.
+    Event Selection.properties.events.properties.event_states.description: Select the event states to include. Leave empty for all.
+
+    Photos.properties.download_photos.properties.photo_size.title: Photo Size
+    Photos.properties.download_photos.properties.photo_size.description: Select the size of the photos downloaded from EarthRanger.
+    Photos.properties.download_photos.properties.photo_size.oneOf:
+      - const: original
+        title: Original
+      - const: xlarge
+        title: Extra large (1920px)
+      - const: large
+        title: Large (800px)
+    Photos.properties.download_photos.properties.max_workers.title: Parallel Downloads
+    Photos.properties.download_photos.properties.max_workers.description: Set how many photos are downloaded at the same time.
+
+    Report Settings.properties.report_language.properties.var.title: Language
+    Report Settings.properties.report_language.properties.var.description: Select the language for the report and table labels.
+    Report Settings.properties.report_language.properties.var.default: en
+    Report Settings.properties.report_language.properties.var.oneOf:
+      - const: en
+        title: English
+      - const: pt
+        title: Português
+      - const: es
+        title: Español
+
+    Report Settings.properties.report_title.properties.var.title: Report Title
+    Report Settings.properties.report_title.properties.var.description: Enter the title shown on the cover page.
+    Report Settings.properties.report_title.properties.var.default: Photographic Records Annex
+
+    Report Settings.properties.organization.properties.var.title: Organization
+    Report Settings.properties.organization.properties.var.description: Enter the organization name shown on the cover page and page header.
+
+    Report Settings.properties.report_subtitle.properties.var.title: Subtitle
+    Report Settings.properties.report_subtitle.properties.var.description: Enter the subtitle shown on the cover page. Leave empty to show the reporting period.
+
+    Report Settings.properties.intro_text.properties.var.title: Introduction
+    Report Settings.properties.intro_text.properties.var.description: Enter the introduction shown on the cover page.
+    Report Settings.properties.intro_text.properties.var.default: >-
+      This annex compiles the photographs attached to EarthRanger events recorded during the reference period. Each record lists the event's identifier, date and time, classification and geographic coordinates, followed by its photographs.
+
+    Report Settings.properties.logo_path.properties.var.title: Logo
+    Report Settings.properties.logo_path.properties.var.description: Enter the path or URL of the logo shown on the cover page.
+
+    Report Settings.properties.oldest_first.properties.var.title: Oldest First
+    Report Settings.properties.oldest_first.properties.var.description: Sort records from oldest to newest.
+    Report Settings.properties.oldest_first.properties.var.default: true
+
+    Report Settings.properties.include_details.properties.var.title: Include Event Details
+    Report Settings.properties.include_details.properties.var.description: Include each event's details in its record.
+    Report Settings.properties.include_details.properties.var.default: true
+
+    Report Settings.properties.photo_records_report.properties.filename.title: File Name
+    Report Settings.properties.photo_records_report.properties.filename.description: Enter the name of the report file, without extension.
+    Report Settings.properties.photo_records_report.properties.filename.default: photo_records_annex
+    Report Settings.properties.photo_records_report.properties.filename.ecoscope:advanced: true
+
+    Report Settings.properties.photo_records_report.properties.template_path.title: Template
+    Report Settings.properties.photo_records_report.properties.template_path.description: Enter the path or URL of the .docx template used for the report.
+    Report Settings.properties.photo_records_report.properties.template_path.default: "https://raw.githubusercontent.com/wildlife-dynamics/download-attachments/main/resources/templates/photo_records_annex_template.docx"
+    Report Settings.properties.photo_records_report.properties.template_path.ecoscope:advanced: true
+
+  uiSchema:
+    Report Settings.photo_records_report.ui:order:
+      - filename
+      - template_path
+    Report Settings.intro_text.var:
+      ui:widget: textarea
+      ui:options:
+        rows: 4
+
+task-instance-defaults:
+  skipif:
+    conditions:
+      - any_is_empty_df
+      - any_dependency_skipped
+
+workflow:
+  - name: Workflow Details
+    id: workflow_details
+    task: set_workflow_details
+
+  - name: Data Source
+    id: er_client
+    task: set_er_connection
+
+  - name: Time Range
+    id: time_range
+    task: set_time_range
+    partial:
+      time_format: "%d %b %Y %H:%M:%S %Z"
+
+  - id: get_timezone
+    task: get_timezone_from_time_range
+    partial:
+      time_range: ${{ workflow.time_range.return }}
+
+  - title: Event Selection
+    type: task-group
+    description: Choose which events to include. Event types and states are optional filters.
+    tasks:
+      # event_types / event_states are left to the user; everything else is
+      # fixed to exactly what the records need.
+      - id: events
+        task: get_events
+        partial:
+          client: ${{ workflow.er_client.return }}
+          time_range: ${{ workflow.time_range.return }}
+          event_columns:
+            - id
+            - time
+            - serial_number
+            - event_type
+            - event_category
+            - title
+            - geometry
+            - event_details
+          include_details: true
+          include_null_geometry: true
+          include_display_values: false
+          include_updates: false
+          include_related_events: false
+          raise_on_empty: false
+          force_point_geometry: true
+
+      - id: events_local_time
+        task: convert_values_to_timezone
+        partial:
+          df: ${{ workflow.events.return }}
+          timezone: ${{ workflow.get_timezone.return }}
+          columns:
+            - time
+
+      - id: events_type_display
+        task: get_event_type_display_names_from_events
+        partial:
+          client: ${{ workflow.er_client.return }}
+          events_gdf: ${{ workflow.events_local_time.return }}
+          append_category_names: never
+
+      - id: events_category_display
+        task: add_event_category_display
+        partial:
+          client: ${{ workflow.er_client.return }}
+          df: ${{ workflow.events_type_display.return }}
+
+      - id: events_resolved
+        task: process_events_details
+        partial:
+          df: ${{ workflow.events_category_display.return }}
+          client: ${{ workflow.er_client.return }}
+          map_to_titles: true
+          ordered: true
+
+  - title: Photos
+    type: task-group
+    description: Download the photos attached to the selected events.
+    tasks:
+      # skip_download / attachments_subdir are fixed here: neither is a
+      # meaningful choice for this workflow (it exists to include photos).
+      - id: download_photos
+        task: download_event_photos
+        partial:
+          client: ${{ workflow.er_client.return }}
+          events: ${{ workflow.events_resolved.return }}
+          output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+          skip_download: false
+          attachments_subdir: attachments
+
+  - title: Report Settings
+    type: task-group
+    description: Language, branding and layout of the report.
+    tasks:
+      - id: report_language
+        task: set_string_var
+
+      - id: report_title
+        task: set_optional_string_var
+
+      - id: organization
+        task: set_optional_string_var
+
+      - id: report_subtitle
+        task: set_optional_string_var
+
+      - id: intro_text
+        task: set_optional_string_var
+
+      - id: logo_path
+        task: set_optional_string_var
+
+      - id: oldest_first
+        task: set_bool_var
+
+      - id: include_details
+        task: set_bool_var
+
+      - id: norm_output_dir
+        task: remove_file_scheme
+        partial:
+          path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+
+      # skipif never: no events / no photos is a normal outcome — the table
+      # and report still render with a "no records" note.
+      - id: photo_records
+        task: build_photo_records
+        skipif:
+          conditions:
+            - never
+        partial:
+          events: ${{ workflow.events_resolved.return }}
+          attachment_paths: ${{ workflow.download_photos.return }}
+          output_dir: ${{ workflow.norm_output_dir.return }}
+          sort_ascending: ${{ workflow.oldest_first.return }}
+          language: ${{ workflow.report_language.return }}
+
+      - id: persist_photo_records
+        task: persist_df
+        partial:
+          df: ${{ workflow.photo_records.return }}
+          filetype: csv
+          filename: photo_records
+          root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+
+      # filename / template_path are left to the user (both advanced, in
+      # one block); the task strips file:// and downloads URL templates itself.
+      - id: photo_records_report
+        task: generate_photo_records_report
+        skipif:
+          conditions:
+            - never
+        partial:
+          records: ${{ workflow.photo_records.return }}
+          output_dir: ${{ workflow.norm_output_dir.return }}
+          time_range: ${{ workflow.time_range.return }}
+          language: ${{ workflow.report_language.return }}
+          title: ${{ workflow.report_title.return }}
+          organization: ${{ workflow.organization.return }}
+          subtitle: ${{ workflow.report_subtitle.return }}
+          intro_text: ${{ workflow.intro_text.return }}
+          logo_path: ${{ workflow.logo_path.return }}
+          include_details: ${{ workflow.include_details.return }}
+
+  - title: Summary
+    type: task-group
+    description: ""
+    tasks:
+      # photo_records is always a dataframe (possibly empty) — count it
+      # anyway so the card shows 0 rather than nothing.
+      - id: total_photos
+        task: dataframe_count
+        skipif:
+          conditions:
+            - never
+        partial:
+          df: ${{ workflow.photo_records.return }}
+
+      - name: Photos
+        id: total_photos_widget
+        task: create_single_value_widget_single_view
+        skipif:
+          conditions:
+            - never
+        partial:
+          title: Photos
+          data: ${{ workflow.total_photos.return }}
+          decimal_places: 0
+
+      # photo_records is always a dataframe (possibly empty) — count it
+      # anyway so the card shows 0 rather than nothing.
+      - id: total_events
+        task: dataframe_column_nunique
+        skipif:
+          conditions:
+            - never
+        partial:
+          df: ${{ workflow.photo_records.return }}
+          column_name: event_id
+
+      - name: Events with Photos
+        id: total_events_widget
+        task: create_single_value_widget_single_view
+        skipif:
+          conditions:
+            - never
+        partial:
+          title: Events with Photos
+          data: ${{ workflow.total_events.return }}
+          decimal_places: 0
+
+  - title: Photographic Records Table
+    type: task-group
+    description: ""
+    tasks:
+      - id: photo_records_html
+        task: format_photo_records_table
+        skipif:
+          conditions:
+            - never
+        partial:
+          records: ${{ workflow.photo_records.return }}
+          language: ${{ workflow.report_language.return }}
+          include_details: ${{ workflow.include_details.return }}
+          thumbnail_size: 480
+
+      - id: persist_photo_records_html
+        task: persist_text
+        skipif:
+          conditions:
+            - never
+        partial:
+          text: ${{ workflow.photo_records_html.return }}
+          filename: photo_records_table.html
+          root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+
+      - name: Photographic Records
+        id: photo_records_widget
+        task: create_plot_widget_single_view
+        skipif:
+          conditions:
+            - never
+        partial:
+          title: Photographic Records
+          data: ${{ workflow.persist_photo_records_html.return }}
+
+  - name: Dashboard
+    id: dashboard
+    task: gather_dashboard
+    partial:
+      details: ${{ workflow.workflow_details.return }}
+      widgets:
+        - ${{ workflow.total_photos_widget.return }}
+        - ${{ workflow.total_events_widget.return }}
+        - ${{ workflow.photo_records_widget.return }}
+      time_range: ${{ workflow.time_range.return }}
