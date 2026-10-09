@@ -54,3 +54,6 @@ events:
 
 download_photos:
   photo_size: xlarge
+
+thumbnail_size:
+  var: 480

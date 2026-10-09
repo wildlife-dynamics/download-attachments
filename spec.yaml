@@ -38,6 +38,12 @@ rjsf-overrides:
         title: Large (800px)
     Photos.properties.download_photos.properties.max_workers.title: Parallel Downloads
     Photos.properties.download_photos.properties.max_workers.description: Set how many photos are downloaded at the same time.
+    Photos.properties.thumbnail_size.properties.var.title: Thumbnail Size
+    Photos.properties.thumbnail_size.properties.var.description: Select the maximum size of the dashboard table thumbnails, in pixels.
+    Photos.properties.thumbnail_size.properties.var.default: 480
+    Photos.properties.thumbnail_size.properties.var.minimum: 200
+    Photos.properties.thumbnail_size.properties.var.maximum: 1024
+    Photos.properties.thumbnail_size.properties.var.ecoscope:advanced: true
 
     Report Settings.properties.report_language.properties.var.title: Language
     Report Settings.properties.report_language.properties.var.description: Select the language for the report and table labels.
@@ -63,7 +69,7 @@ rjsf-overrides:
     Report Settings.properties.intro_text.properties.var.title: Introduction
     Report Settings.properties.intro_text.properties.var.description: Enter the introduction shown on the cover page.
     Report Settings.properties.intro_text.properties.var.default: >-
-      This annex compiles the photographs attached to EarthRanger events recorded during the reference period. Each record lists the event's identifier, date and time, classification and geographic coordinates, followed by its photographs.
+      This annex compiles the photographs attached to EarthRanger events recorded during the reference period. Each record lists the event identifier, date and time, classification and geographic coordinates, followed by its photographs.
 
     Report Settings.properties.logo_path.properties.var.title: Logo
     Report Settings.properties.logo_path.properties.var.description: Enter the path or URL of the logo shown on the cover page.
@@ -85,6 +91,20 @@ rjsf-overrides:
     Report Settings.properties.photo_records_report.properties.template_path.description: Enter the path or URL of the .docx template used for the report.
     Report Settings.properties.photo_records_report.properties.template_path.default: "https://raw.githubusercontent.com/wildlife-dynamics/download-attachments/main/resources/templates/photo_records_annex_template.docx"
     Report Settings.properties.photo_records_report.properties.template_path.ecoscope:advanced: true
+
+    groupers.properties.groupers.description: >-
+      Select how to split the records into dashboard views, each with its own
+      report. Leave empty to keep all records in a single sequence.
+    groupers.properties.groupers.items.anyOf:
+      - "$ref": "#/$defs/ValueGrouper"
+      - "$ref": "#/$defs/TemporalGrouper"
+
+  $defs:
+    ValueGrouper.properties.index_name.oneOf:
+      - const: event_type
+        title: Event Type
+      - const: event_category
+        title: Event Category
 
   uiSchema:
     Report Settings.photo_records_report.ui:order:
@@ -120,6 +140,10 @@ workflow:
     task: get_timezone_from_time_range
     partial:
       time_range: ${{ workflow.time_range.return }}
+
+  - name: Group by
+    id: groupers
+    task: set_groupers
 
   - title: Event Selection
     type: task-group
@@ -193,6 +217,9 @@ workflow:
           skip_download: false
           attachments_subdir: attachments
 
+      - id: thumbnail_size
+        task: set_int_var
+
   - title: Report Settings
     type: task-group
     description: Language, branding and layout of the report.
@@ -248,6 +275,39 @@ workflow:
           filename: photo_records
           root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
 
+      # Groupers split the (already sorted, numbered) records into one
+      # set per dashboard view; with no groupers this is the single
+      # AllGrouper view. Numbering restarts in each view's report.
+      - id: records_indexed
+        task: add_temporal_index
+        skipif:
+          conditions:
+            - never
+        partial:
+          df: ${{ workflow.photo_records.return }}
+          time_col: time
+          groupers: ${{ workflow.groupers.return }}
+          cast_to_datetime: true
+          format: mixed
+
+      - id: records_split
+        task: split_groups
+        skipif:
+          conditions:
+            - never
+        partial:
+          df: ${{ workflow.records_indexed.return }}
+          groupers: ${{ workflow.groupers.return }}
+
+      - id: records_by_view
+        task: renumber_photo_records
+        skipif:
+          conditions:
+            - never
+        mapvalues:
+          argnames: records
+          argvalues: ${{ workflow.records_split.return }}
+
       # filename / template_path are left to the user (both advanced, in
       # one block); the task strips file:// and downloads URL templates itself.
       - id: photo_records_report
@@ -256,7 +316,6 @@ workflow:
           conditions:
             - never
         partial:
-          records: ${{ workflow.photo_records.return }}
           output_dir: ${{ workflow.norm_output_dir.return }}
           time_range: ${{ workflow.time_range.return }}
           language: ${{ workflow.report_language.return }}
@@ -266,20 +325,24 @@ workflow:
           intro_text: ${{ workflow.intro_text.return }}
           logo_path: ${{ workflow.logo_path.return }}
           include_details: ${{ workflow.include_details.return }}
+        map:
+          argnames: [composite_filter, records]
+          argvalues: ${{ workflow.records_by_view.return }}
 
   - title: Summary
     type: task-group
     description: ""
     tasks:
-      # photo_records is always a dataframe (possibly empty) — count it
-      # anyway so the card shows 0 rather than nothing.
+      # records are always a dataframe (possibly empty) — count them anyway
+      # so a card shows 0 rather than nothing.
       - id: total_photos
         task: dataframe_count
         skipif:
           conditions:
             - never
-        partial:
-          df: ${{ workflow.photo_records.return }}
+        mapvalues:
+          argnames: df
+          argvalues: ${{ workflow.records_by_view.return }}
 
       - name: Photos
         id: total_photos_widget
@@ -289,19 +352,29 @@ workflow:
             - never
         partial:
           title: Photos
-          data: ${{ workflow.total_photos.return }}
           decimal_places: 0
+        map:
+          argnames: [view, data]
+          argvalues: ${{ workflow.total_photos.return }}
 
-      # photo_records is always a dataframe (possibly empty) — count it
-      # anyway so the card shows 0 rather than nothing.
+      - id: total_photos_merged
+        task: merge_widget_views
+        skipif:
+          conditions:
+            - never
+        partial:
+          widgets: ${{ workflow.total_photos_widget.return }}
+
       - id: total_events
         task: dataframe_column_nunique
         skipif:
           conditions:
             - never
         partial:
-          df: ${{ workflow.photo_records.return }}
           column_name: event_id
+        mapvalues:
+          argnames: df
+          argvalues: ${{ workflow.records_by_view.return }}
 
       - name: Events with Photos
         id: total_events_widget
@@ -311,8 +384,18 @@ workflow:
             - never
         partial:
           title: Events with Photos
-          data: ${{ workflow.total_events.return }}
           decimal_places: 0
+        map:
+          argnames: [view, data]
+          argvalues: ${{ workflow.total_events.return }}
+
+      - id: total_events_merged
+        task: merge_widget_views
+        skipif:
+          conditions:
+            - never
+        partial:
+          widgets: ${{ workflow.total_events_widget.return }}
 
   - title: Photographic Records Table
     type: task-group
@@ -324,20 +407,25 @@ workflow:
           conditions:
             - never
         partial:
-          records: ${{ workflow.photo_records.return }}
           language: ${{ workflow.report_language.return }}
           include_details: ${{ workflow.include_details.return }}
-          thumbnail_size: 480
+          thumbnail_size: ${{ workflow.thumbnail_size.return }}
+        mapvalues:
+          argnames: records
+          argvalues: ${{ workflow.records_by_view.return }}
 
+      # no filename: persist_text names each view's table by a hash of its
+      # content, so views don't overwrite each other.
       - id: persist_photo_records_html
         task: persist_text
         skipif:
           conditions:
             - never
         partial:
-          text: ${{ workflow.photo_records_html.return }}
-          filename: photo_records_table.html
           root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+        mapvalues:
+          argnames: text
+          argvalues: ${{ workflow.photo_records_html.return }}
 
       - name: Photographic Records
         id: photo_records_widget
@@ -347,7 +435,37 @@ workflow:
             - never
         partial:
           title: Photographic Records
-          data: ${{ workflow.persist_photo_records_html.return }}
+        map:
+          argnames: [view, data]
+          argvalues: ${{ workflow.persist_photo_records_html.return }}
+
+      - id: photo_records_merged
+        task: merge_widget_views
+        skipif:
+          conditions:
+            - never
+        partial:
+          widgets: ${{ workflow.photo_records_widget.return }}
+
+  # Declared files are what ecoscope-desktop lists in the run's Files tab
+  # (results.json "files" contract): each view's report on its own view,
+  # the CSV of all records on every view.
+  - id: report_file_views
+    task: create_files_single_view
+    skipif:
+      conditions:
+        - never
+    map:
+      argnames: [view, files]
+      argvalues: ${{ workflow.photo_records_report.return }}
+
+  - id: csv_file_view
+    task: create_files_single_view
+    skipif:
+      conditions:
+        - never
+    partial:
+      files: ${{ workflow.persist_photo_records.return }}
 
   - name: Dashboard
     id: dashboard
@@ -355,7 +473,11 @@ workflow:
     partial:
       details: ${{ workflow.workflow_details.return }}
       widgets:
-        - ${{ workflow.total_photos_widget.return }}
-        - ${{ workflow.total_events_widget.return }}
-        - ${{ workflow.photo_records_widget.return }}
+        - ${{ workflow.total_photos_merged.return }}
+        - ${{ workflow.total_events_merged.return }}
+        - ${{ workflow.photo_records_merged.return }}
+      groupers: ${{ workflow.groupers.return }}
       time_range: ${{ workflow.time_range.return }}
+      files:
+        - ${{ workflow.report_file_views.return }}
+        - ${{ workflow.csv_file_view.return }}

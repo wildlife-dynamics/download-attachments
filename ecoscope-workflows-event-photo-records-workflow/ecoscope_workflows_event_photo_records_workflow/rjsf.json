@@ -68,6 +68,31 @@
       "description": "Choose the period of time to analyze.",
       "title": "Time Range"
     },
+    "groupers": {
+      "additionalProperties": false,
+      "properties": {
+        "groupers": {
+          "default": null,
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ValueGrouper"
+              },
+              {
+                "$ref": "#/$defs/TemporalGrouper"
+              }
+            ],
+            "title": "Group by"
+          },
+          "title": " ",
+          "type": "array",
+          "description": "Select how to split the records into dashboard views, each with its own report. Leave empty to keep all records in a single sequence."
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Group by"
+    },
     "Event Selection": {
       "type": "object",
       "description": "Choose which events to include. Event types and states are optional filters.",
@@ -163,6 +188,25 @@
           "required": [],
           "type": "object",
           "title": ""
+        },
+        "thumbnail_size": {
+          "additionalProperties": false,
+          "properties": {
+            "var": {
+              "title": "Thumbnail Size",
+              "type": "integer",
+              "description": "Select the maximum size of the dashboard table thumbnails, in pixels.",
+              "default": 480,
+              "minimum": 200,
+              "maximum": 1024,
+              "ecoscope:advanced": true
+            }
+          },
+          "required": [
+            "var"
+          ],
+          "type": "object",
+          "title": ""
         }
       }
     },
@@ -247,7 +291,7 @@
           "additionalProperties": false,
           "properties": {
             "var": {
-              "default": "This annex compiles the photographs attached to EarthRanger events recorded during the reference period. Each record lists the event's identifier, date and time, classification and geographic coordinates, followed by its photographs.",
+              "default": "This annex compiles the photographs attached to EarthRanger events recorded during the reference period. Each record lists the event identifier, date and time, classification and geographic coordinates, followed by its photographs.",
               "title": "Introduction",
               "type": "string",
               "description": "Enter the introduction shown on the cover page."
@@ -371,6 +415,89 @@
       ],
       "title": "TimezoneInfo",
       "type": "object"
+    },
+    "SpatialGrouper": {
+      "properties": {
+        "spatial_index_name": {
+          "title": "Spatial Regions",
+          "type": "string"
+        }
+      },
+      "required": [
+        "spatial_index_name"
+      ],
+      "title": "Spatial",
+      "type": "object"
+    },
+    "TemporalGrouper": {
+      "properties": {
+        "temporal_index": {
+          "oneOf": [
+            {
+              "const": "%Y",
+              "title": "Year (example: 2024)"
+            },
+            {
+              "const": "%B",
+              "title": "Month (example: September)"
+            },
+            {
+              "const": "%Y-%m",
+              "title": "Year and Month (example: 2023-01)"
+            },
+            {
+              "const": "%j",
+              "title": "Day of the year as a number (example: 365)"
+            },
+            {
+              "const": "%d",
+              "title": "Day of the month as a number (example: 31)"
+            },
+            {
+              "const": "%A",
+              "title": "Day of the week (example: Sunday)"
+            },
+            {
+              "const": "%H",
+              "title": "Hour (24-hour clock) as number (example: 22)"
+            },
+            {
+              "const": "%Y-%m-%d",
+              "title": "Date (example: 2025-01-31)"
+            }
+          ],
+          "title": "Time",
+          "type": "string"
+        }
+      },
+      "required": [
+        "temporal_index"
+      ],
+      "title": "Time",
+      "type": "object"
+    },
+    "ValueGrouper": {
+      "properties": {
+        "index_name": {
+          "title": "Category",
+          "type": "string",
+          "oneOf": [
+            {
+              "const": "event_type",
+              "title": "Event Type"
+            },
+            {
+              "const": "event_category",
+              "title": "Event Category"
+            }
+          ]
+        }
+      },
+      "required": [
+        "index_name"
+      ],
+      "title": "Category",
+      "type": "object"
     }
   },
   "uiSchema": {
@@ -396,6 +523,10 @@
       }
     },
     "Photos": {
+      "ui:order": [
+        "download_photos",
+        "thumbnail_size"
+      ],
       "download_photos": {
         "ui:order": [
           "photo_size",
@@ -434,6 +565,7 @@
       "workflow_details",
       "er_client",
       "time_range",
+      "groupers",
       "Event Selection",
       "Photos",
       "Report Settings"

@@ -16,6 +16,8 @@ from ecoscope.platform.tasks.filter import (
     get_timezone_from_time_range as get_timezone_from_time_range,
 )
 from ecoscope.platform.tasks.filter import set_time_range as set_time_range
+from ecoscope.platform.tasks.groupby import set_groupers as set_groupers
+from ecoscope.platform.tasks.groupby import split_groups as split_groups
 from ecoscope.platform.tasks.io import (
     get_event_type_display_names_from_events as get_event_type_display_names_from_events,
 )
@@ -25,17 +27,24 @@ from ecoscope.platform.tasks.io import persist_text as persist_text
 from ecoscope.platform.tasks.io import process_events_details as process_events_details
 from ecoscope.platform.tasks.io import set_er_connection as set_er_connection
 from ecoscope.platform.tasks.results import (
+    create_files_single_view as create_files_single_view,
+)
+from ecoscope.platform.tasks.results import (
     create_plot_widget_single_view as create_plot_widget_single_view,
 )
 from ecoscope.platform.tasks.results import (
     create_single_value_widget_single_view as create_single_value_widget_single_view,
 )
 from ecoscope.platform.tasks.results import gather_dashboard as gather_dashboard
+from ecoscope.platform.tasks.results import merge_widget_views as merge_widget_views
 from ecoscope.platform.tasks.skip import (
     any_dependency_skipped as any_dependency_skipped,
 )
 from ecoscope.platform.tasks.skip import any_is_empty_df as any_is_empty_df
 from ecoscope.platform.tasks.skip import never as never
+from ecoscope.platform.tasks.transformation import (
+    add_temporal_index as add_temporal_index,
+)
 from ecoscope.platform.tasks.transformation import (
     convert_values_to_timezone as convert_values_to_timezone,
 )
@@ -55,6 +64,10 @@ from ecoscope_workflows_ext_wd.tasks import (
 from ecoscope_workflows_ext_wd.tasks import (
     generate_photo_records_report as generate_photo_records_report,
 )
+from ecoscope_workflows_ext_wd.tasks import (
+    renumber_photo_records as renumber_photo_records,
+)
+from ecoscope_workflows_ext_wd.tasks import set_int_var as set_int_var
 from wt_contracts import validate as _validate
 from wt_task import task
 
@@ -130,6 +143,23 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(time_range=time_range, **(params.get("get_timezone") or {}))
+        .call()
+    )
+
+    groupers = (
+        task(set_groupers)
+        .validate()
+        .set_task_instance_id("groupers")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(**(params.get("groupers") or {}))
         .call()
     )
 
@@ -280,6 +310,23 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             attachments_subdir="attachments",
             **(params.get("download_photos") or {}),
         )
+        .call()
+    )
+
+    thumbnail_size = (
+        task(set_int_var)
+        .validate()
+        .set_task_instance_id("thumbnail_size")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(**(params.get("thumbnail_size") or {}))
         .call()
     )
 
@@ -485,6 +532,63 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
+    records_indexed = (
+        task(add_temporal_index)
+        .validate()
+        .set_task_instance_id("records_indexed")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                never,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            df=photo_records,
+            time_col="time",
+            groupers=groupers,
+            cast_to_datetime=True,
+            format="mixed",
+            **(params.get("records_indexed") or {}),
+        )
+        .call()
+    )
+
+    records_split = (
+        task(split_groups)
+        .validate()
+        .set_task_instance_id("records_split")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                never,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            df=records_indexed, groupers=groupers, **(params.get("records_split") or {})
+        )
+        .call()
+    )
+
+    records_by_view = (
+        task(renumber_photo_records)
+        .validate()
+        .set_task_instance_id("records_by_view")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                never,
+            ],
+            unpack_depth=1,
+        )
+        .partial(**(params.get("records_by_view") or {}))
+        .mapvalues(argnames=["records"], argvalues=records_split)
+    )
+
     photo_records_report = (
         task(generate_photo_records_report)
         .validate()
@@ -498,7 +602,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            records=photo_records,
             output_dir=norm_output_dir,
             time_range=time_range,
             language=report_language,
@@ -510,7 +613,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             include_details=include_details,
             **(params.get("photo_records_report") or {}),
         )
-        .call()
+        .map(argnames=["composite_filter", "records"], argvalues=records_by_view)
     )
 
     total_photos = (
@@ -525,8 +628,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             ],
             unpack_depth=1,
         )
-        .partial(df=photo_records, **(params.get("total_photos") or {}))
-        .call()
+        .partial(**(params.get("total_photos") or {}))
+        .mapvalues(argnames=["df"], argvalues=records_by_view)
     )
 
     total_photos_widget = (
@@ -543,9 +646,26 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         )
         .partial(
             title="Photos",
-            data=total_photos,
             decimal_places=0,
             **(params.get("total_photos_widget") or {}),
+        )
+        .map(argnames=["view", "data"], argvalues=total_photos)
+    )
+
+    total_photos_merged = (
+        task(merge_widget_views)
+        .validate()
+        .set_task_instance_id("total_photos_merged")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                never,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            widgets=total_photos_widget, **(params.get("total_photos_merged") or {})
         )
         .call()
     )
@@ -562,12 +682,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             ],
             unpack_depth=1,
         )
-        .partial(
-            df=photo_records,
-            column_name="event_id",
-            **(params.get("total_events") or {}),
-        )
-        .call()
+        .partial(column_name="event_id", **(params.get("total_events") or {}))
+        .mapvalues(argnames=["df"], argvalues=records_by_view)
     )
 
     total_events_widget = (
@@ -584,9 +700,26 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         )
         .partial(
             title="Events with Photos",
-            data=total_events,
             decimal_places=0,
             **(params.get("total_events_widget") or {}),
+        )
+        .map(argnames=["view", "data"], argvalues=total_events)
+    )
+
+    total_events_merged = (
+        task(merge_widget_views)
+        .validate()
+        .set_task_instance_id("total_events_merged")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                never,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            widgets=total_events_widget, **(params.get("total_events_merged") or {})
         )
         .call()
     )
@@ -604,13 +737,12 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            records=photo_records,
             language=report_language,
             include_details=include_details,
-            thumbnail_size=480,
+            thumbnail_size=thumbnail_size,
             **(params.get("photo_records_html") or {}),
         )
-        .call()
+        .mapvalues(argnames=["records"], argvalues=records_by_view)
     )
 
     persist_photo_records_html = (
@@ -626,12 +758,10 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            text=photo_records_html,
-            filename="photo_records_table.html",
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             **(params.get("persist_photo_records_html") or {}),
         )
-        .call()
+        .mapvalues(argnames=["text"], argvalues=photo_records_html)
     )
 
     photo_records_widget = (
@@ -647,10 +777,58 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            title="Photographic Records",
-            data=persist_photo_records_html,
-            **(params.get("photo_records_widget") or {}),
+            title="Photographic Records", **(params.get("photo_records_widget") or {})
         )
+        .map(argnames=["view", "data"], argvalues=persist_photo_records_html)
+    )
+
+    photo_records_merged = (
+        task(merge_widget_views)
+        .validate()
+        .set_task_instance_id("photo_records_merged")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                never,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            widgets=photo_records_widget, **(params.get("photo_records_merged") or {})
+        )
+        .call()
+    )
+
+    report_file_views = (
+        task(create_files_single_view)
+        .validate()
+        .set_task_instance_id("report_file_views")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                never,
+            ],
+            unpack_depth=1,
+        )
+        .partial(**(params.get("report_file_views") or {}))
+        .map(argnames=["view", "files"], argvalues=photo_records_report)
+    )
+
+    csv_file_view = (
+        task(create_files_single_view)
+        .validate()
+        .set_task_instance_id("csv_file_view")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                never,
+            ],
+            unpack_depth=1,
+        )
+        .partial(files=persist_photo_records, **(params.get("csv_file_view") or {}))
         .call()
     )
 
@@ -669,8 +847,10 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         )
         .partial(
             details=workflow_details,
-            widgets=[total_photos_widget, total_events_widget, photo_records_widget],
+            widgets=[total_photos_merged, total_events_merged, photo_records_merged],
+            groupers=groupers,
             time_range=time_range,
+            files=[report_file_views, csv_file_view],
             **(params.get("dashboard") or {}),
         )
         .call()

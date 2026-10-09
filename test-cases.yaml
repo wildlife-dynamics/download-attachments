@@ -34,6 +34,8 @@ iguacu-hunting-pt:
         - caceria
     download_photos:
       photo_size: xlarge
+    thumbnail_size:
+      var: 480
 
 all-event-types-en:
   name: All event types — English
@@ -66,3 +68,5 @@ all-event-types-en:
       event_types: []
     download_photos:
       photo_size: xlarge
+    thumbnail_size:
+      var: 480
