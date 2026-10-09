@@ -129,4 +129,4 @@ pixi run --manifest-path ../wd-partner-tasks/src/ecoscope-workflows-ext-wd/pypro
 
 ### Releasing
 
-`spec.yaml` currently takes `ecoscope-workflows-ext-wd` from the local build channel (`file:///tmp/ecoscope-workflows-custom/release/artifacts/`). Once the ext-wd changes are merged and tagged `wd-v0.0.5`, switch that requirement to `https://repo.prefix.dev/ecoscope-workflows-custom/` at `0.0.5`, then `make recompile`.
+`spec.yaml` pins the published `ecoscope-workflows-ext-wd` (`0.0.5`, from `https://repo.prefix.dev/ecoscope-workflows-custom/`). To test unreleased ext-wd changes, point that requirement at the local build channel `file:///tmp/ecoscope-workflows-custom/release/artifacts/` and use `make recompile`; that target builds ext-wd from `../wd-partner-tasks` first. Then tag a new `wd-v*`, switch back to the published channel at that version, and recompile.
