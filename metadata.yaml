@@ -1,0 +1,14 @@
+name: Event Photographic Records
+author:
+  name: ""
+  organization: Wildlife Dynamics
+  email: ""
+description: >
+  Photographic records annex — downloads the photos attached to EarthRanger
+  events for a chosen period (optionally filtered by event type and state)
+  and presents one row per photo: event ID, date and time, classification,
+  coordinates and the image. Produces an interactive dashboard and a Word
+  (.docx) annex, ready to attach to partner reports.
+theory: ""
+output_comment: ""
+citation: ""

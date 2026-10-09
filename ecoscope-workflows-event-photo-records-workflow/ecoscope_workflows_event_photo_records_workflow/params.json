@@ -1,0 +1,494 @@
+{
+  "properties": {
+    "workflow_details": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Workflow Name",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Workflow Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object",
+      "description": "Add information that will help to differentiate this workflow from another.",
+      "title": "Workflow Details"
+    },
+    "er_client": {
+      "additionalProperties": false,
+      "properties": {
+        "data_source": {
+          "$ref": "#/$defs/EarthRangerConnection",
+          "title": "",
+          "description": "Select one of your configured data sources."
+        }
+      },
+      "required": [
+        "data_source"
+      ],
+      "type": "object",
+      "title": "Data Source"
+    },
+    "time_range": {
+      "additionalProperties": false,
+      "properties": {
+        "since": {
+          "format": "date-time",
+          "title": "Since",
+          "type": "string",
+          "description": "The start time"
+        },
+        "until": {
+          "format": "date-time",
+          "title": "Until",
+          "type": "string",
+          "description": "The end time"
+        },
+        "timezone": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/TimezoneInfo"
+            }
+          ],
+          "default": null,
+          "title": "Timezone"
+        }
+      },
+      "required": [
+        "since",
+        "until"
+      ],
+      "type": "object",
+      "description": "Choose the period of time to analyze.",
+      "title": "Time Range"
+    },
+    "groupers": {
+      "additionalProperties": false,
+      "properties": {
+        "groupers": {
+          "default": null,
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ValueGrouper"
+              },
+              {
+                "$ref": "#/$defs/TemporalGrouper"
+              },
+              {
+                "$ref": "#/$defs/SpatialGrouper"
+              }
+            ],
+            "title": "Group by"
+          },
+          "title": " ",
+          "type": "array",
+          "description": "            Specify how the data should be grouped to create the views for your dashboard.\n            This field is optional; if left blank, all the data will appear in a single view.\n            "
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Group by"
+    },
+    "events": {
+      "additionalProperties": false,
+      "properties": {
+        "event_types": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Event Types",
+          "type": "array",
+          "description": "Specify the event type(s) to analyze (optional). Leave this section empty to analyze all event types."
+        },
+        "event_states": {
+          "default": null,
+          "items": {
+            "type": "string",
+            "oneOf": [
+              {
+                "const": "new",
+                "title": "New"
+              },
+              {
+                "const": "active",
+                "title": "Active"
+              },
+              {
+                "const": "resolved",
+                "title": "Resolved"
+              },
+              {
+                "const": "review",
+                "title": "Review"
+              }
+            ]
+          },
+          "title": "Event State",
+          "type": "array",
+          "description": "Choose to analyze events with a certain state. If left empty, events of all states will be analyzed",
+          "uniqueItems": true,
+          "ecoscope:advanced": true
+        }
+      },
+      "required": [
+        "event_types"
+      ],
+      "type": "object",
+      "title": ""
+    },
+    "download_photos": {
+      "additionalProperties": false,
+      "properties": {
+        "photo_size": {
+          "default": "xlarge",
+          "title": "Photo Size",
+          "type": "string",
+          "description": "Which version of each photo to download: EarthRanger's resized xlarge (1920px) or large (800px) copy, or the untouched original.",
+          "oneOf": [
+            {
+              "const": "original",
+              "title": "original"
+            },
+            {
+              "const": "xlarge",
+              "title": "xlarge"
+            },
+            {
+              "const": "large",
+              "title": "large"
+            }
+          ]
+        },
+        "max_workers": {
+          "default": 8,
+          "maximum": 16,
+          "minimum": 1,
+          "title": "Max Workers",
+          "type": "integer",
+          "description": "Number of attachments downloaded in parallel.",
+          "ecoscope:advanced": true
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": ""
+    },
+    "thumbnail_size": {
+      "additionalProperties": false,
+      "properties": {
+        "var": {
+          "title": "",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "var"
+      ],
+      "type": "object",
+      "title": ""
+    },
+    "report_language": {
+      "additionalProperties": false,
+      "properties": {
+        "var": {
+          "title": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "var"
+      ],
+      "type": "object",
+      "title": ""
+    },
+    "report_title": {
+      "additionalProperties": false,
+      "properties": {
+        "var": {
+          "default": "",
+          "title": "",
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": ""
+    },
+    "organization": {
+      "additionalProperties": false,
+      "properties": {
+        "var": {
+          "default": "",
+          "title": "",
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": ""
+    },
+    "report_subtitle": {
+      "additionalProperties": false,
+      "properties": {
+        "var": {
+          "default": "",
+          "title": "",
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": ""
+    },
+    "intro_text": {
+      "additionalProperties": false,
+      "properties": {
+        "var": {
+          "default": "",
+          "title": "",
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": ""
+    },
+    "logo_path": {
+      "additionalProperties": false,
+      "properties": {
+        "var": {
+          "default": "",
+          "title": "",
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": ""
+    },
+    "oldest_first": {
+      "additionalProperties": false,
+      "properties": {
+        "var": {
+          "title": "",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "var"
+      ],
+      "type": "object",
+      "title": ""
+    },
+    "include_details": {
+      "additionalProperties": false,
+      "properties": {
+        "var": {
+          "title": "",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "var"
+      ],
+      "type": "object",
+      "title": ""
+    },
+    "photo_records_report": {
+      "additionalProperties": false,
+      "properties": {
+        "template_path": {
+          "title": "Template Path",
+          "type": "string",
+          "description": "Path or URL to the photo_records_annex_template.docx."
+        },
+        "filename": {
+          "default": "photo_records_annex",
+          "title": "Filename",
+          "type": "string",
+          "description": "Output file name, without extension."
+        }
+      },
+      "required": [
+        "template_path"
+      ],
+      "type": "object",
+      "title": ""
+    }
+  },
+  "$defs": {
+    "EarthRangerConnection": {
+      "properties": {
+        "name": {
+          "title": "Data Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "EarthRangerConnection",
+      "type": "object"
+    },
+    "TimezoneInfo": {
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "tzCode": {
+          "title": "Tzcode",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "utc": {
+          "title": "Utc",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "tzCode",
+        "name",
+        "utc"
+      ],
+      "title": "TimezoneInfo",
+      "type": "object"
+    },
+    "SpatialGrouper": {
+      "properties": {
+        "spatial_index_name": {
+          "title": "Spatial Regions",
+          "type": "string"
+        }
+      },
+      "required": [
+        "spatial_index_name"
+      ],
+      "title": "Spatial",
+      "type": "object"
+    },
+    "TemporalGrouper": {
+      "properties": {
+        "temporal_index": {
+          "oneOf": [
+            {
+              "const": "%Y",
+              "title": "Year (example: 2024)"
+            },
+            {
+              "const": "%B",
+              "title": "Month (example: September)"
+            },
+            {
+              "const": "%Y-%m",
+              "title": "Year and Month (example: 2023-01)"
+            },
+            {
+              "const": "%j",
+              "title": "Day of the year as a number (example: 365)"
+            },
+            {
+              "const": "%d",
+              "title": "Day of the month as a number (example: 31)"
+            },
+            {
+              "const": "%A",
+              "title": "Day of the week (example: Sunday)"
+            },
+            {
+              "const": "%H",
+              "title": "Hour (24-hour clock) as number (example: 22)"
+            },
+            {
+              "const": "%Y-%m-%d",
+              "title": "Date (example: 2025-01-31)"
+            }
+          ],
+          "title": "Time",
+          "type": "string"
+        }
+      },
+      "required": [
+        "temporal_index"
+      ],
+      "title": "Time",
+      "type": "object"
+    },
+    "ValueGrouper": {
+      "properties": {
+        "index_name": {
+          "title": "Category",
+          "type": "string"
+        }
+      },
+      "required": [
+        "index_name"
+      ],
+      "title": "Category",
+      "type": "object"
+    }
+  },
+  "uiSchema": {
+    "workflow_details": {
+      "ui:order": [
+        "name",
+        "description"
+      ]
+    },
+    "time_range": {
+      "ui:order": [
+        "since",
+        "until",
+        "timezone"
+      ]
+    },
+    "events": {
+      "ui:order": [
+        "event_types",
+        "event_states"
+      ]
+    },
+    "download_photos": {
+      "ui:order": [
+        "photo_size",
+        "max_workers"
+      ]
+    },
+    "photo_records_report": {
+      "ui:order": [
+        "template_path",
+        "filename"
+      ]
+    },
+    "ui:order": [
+      "workflow_details",
+      "er_client",
+      "time_range",
+      "groupers",
+      "events",
+      "download_photos",
+      "thumbnail_size",
+      "report_language",
+      "report_title",
+      "organization",
+      "report_subtitle",
+      "intro_text",
+      "logo_path",
+      "oldest_first",
+      "include_details",
+      "photo_records_report"
+    ]
+  },
+  "additionalProperties": false
+}

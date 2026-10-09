@@ -1,0 +1,72 @@
+iguacu-hunting-pt:
+  name: Iguaçu — Caça, maio e junho de 2026
+  description: >-
+    Hunting (caceria) events at Parque Nacional do Iguaçu, Portuguese labels,
+    newest first — the period covered by ICMBio's Anexo Fotográfico SMART.
+  params:
+    workflow_details:
+      name: Anexo – Registro Fotográfico
+      description: ""
+    er_client:
+      data_source:
+        name: parnaiguacu
+    time_range:
+      since: "2026-05-01T03:00:00.000Z"
+      until: "2026-07-01T03:00:00.000Z"
+      timezone:
+        label: "UTC-03:00"
+        tzCode: America/Sao_Paulo
+        name: America/Sao_Paulo
+        utc: "-03:00"
+    report_language:
+      var: pt
+    organization:
+      var: Parque Nacional do Iguaçu – ICMBio
+    oldest_first:
+      var: false
+    include_details:
+      var: true
+    photo_records_report:
+      filename: anexo_registro_fotografico
+      template_path: "file:///workspace/resources/templates/photo_records_annex_template.docx"
+    events:
+      event_types:
+        - caceria
+    download_photos:
+      photo_size: xlarge
+    thumbnail_size:
+      var: 480
+
+all-event-types-en:
+  name: All event types — English
+  description: Every event type with photos in the period, English labels, oldest first.
+  params:
+    workflow_details:
+      name: Photographic Records
+      description: ""
+    er_client:
+      data_source:
+        name: parnaiguacu
+    time_range:
+      since: "2026-06-01T03:00:00.000Z"
+      until: "2026-07-01T03:00:00.000Z"
+      timezone:
+        label: "UTC-03:00"
+        tzCode: America/Sao_Paulo
+        name: America/Sao_Paulo
+        utc: "-03:00"
+    report_language:
+      var: en
+    oldest_first:
+      var: true
+    include_details:
+      var: false
+    photo_records_report:
+      filename: photo_records_annex
+      template_path: "file:///workspace/resources/templates/photo_records_annex_template.docx"
+    events:
+      event_types: []
+    download_photos:
+      photo_size: xlarge
+    thumbnail_size:
+      var: 480
